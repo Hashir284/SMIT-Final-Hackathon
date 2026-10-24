@@ -9,6 +9,7 @@ lerna-debug.log*
 
 node_modules
 .env
+client_secret_572194229477-mqt9pbq580vep38rg4s1mt5cd49iem66.apps.googleusercontent.com
 
 *.local
 
