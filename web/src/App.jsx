@@ -1,39 +1,111 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
-import useAuth from './context/useAuth.js'
-import Dashboard from './pages/Dashboard.jsx'
-import Home from './pages/Home.jsx'
-import Login from './pages/Login.jsx'
-import Signup from './pages/Signup.jsx'
+import { Routes, Route, Navigate } from "react-router-dom";
+import { lazy, Suspense } from "react";
+import { useAuth } from "./context/AuthContext";
+import Layout from "./components/Layout";
+import Login from "./pages/Login";
+import FirstRun from "./pages/FirstRun";
+import Dashboard from "./pages/Dashboard";
+import Employees from "./pages/Employees";
+import Attendance from "./pages/Attendance";
+import Leaves from "./pages/Leaves";
+import Payroll from "./pages/Payroll";
+import Organization from "./pages/Organization";
+import Announcements from "./pages/Announcements";
+import AuditLog from "./pages/AuditLog";
+import ChangePassword from "./pages/ChangePassword";
 
-export default function AppRouter() {
-  const { user, userLoggedIn } = useAuth()
+const AIAssistant = lazy(() => import("./pages/AIAssistant"));
 
-  if (userLoggedIn === null) {
+function PrivateRoute({ children, roles }) {
+  const { user, loading } = useAuth();
+  if (loading) {
     return (
-      <div className="grid min-h-screen place-content-center justify-items-center gap-3 bg-page text-[13px] text-muted" role="status" aria-live="polite">
-        <span className="grid size-[42px] place-items-center rounded-full border border-[#96aa94] font-display text-[28px] leading-none text-forest animate-enter">c</span>
-        <p className="m-0">Loading your space...</p>
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-teal-500/20 flex items-center justify-center">
+            <div className="w-5 h-5 border-2 border-teal-600 border-t-transparent rounded-full animate-spin" />
+          </div>
+          <p className="text-sm text-slate-500">Loading HCM Lite...</p>
+        </div>
       </div>
-    )
+    );
+  }
+  if (!user) return <Navigate to="/login" replace />;
+  if (roles && !roles.includes(user.role)) return <Navigate to="/" replace />;
+  if (user.mustChangePassword) return <Navigate to="/change-password" replace />;
+  return children;
+}
+
+export default function App() {
+  const { user, loading, needsSetup } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-teal-500/20 flex items-center justify-center">
+            <div className="w-5 h-5 border-2 border-teal-600 border-t-transparent rounded-full animate-spin" />
+          </div>
+          <p className="text-sm text-slate-500">Loading HCM Lite...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (needsSetup) {
+    return (
+      <Routes>
+        <Route path="*" element={<FirstRun />} />
+      </Routes>
+    );
   }
 
   return (
-    <div className="min-h-screen w-full">
-      <Routes>
-        {userLoggedIn ? (
-          <>
-            <Route path="/" element={<Home />} />
-            {user?.role === 'admin' && <Route path="/dashboard" element={<Dashboard />} />}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </>
-        ) : (
-          <>
-            <Route path="/" element={<Login />} />
-            <Route path="/signup" element={<Signup />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </>
-        )}
-      </Routes>
-    </div>
-  )
+    <Routes>
+      <Route path="/login" element={user ? <Navigate to="/" /> : <Login />} />
+      <Route path="/change-password" element={user ? <ChangePassword /> : <Navigate to="/login" />} />
+
+      <Route
+        path="/"
+        element={
+          <PrivateRoute>
+            <Layout />
+          </PrivateRoute>
+        }
+      >
+        <Route index element={<Dashboard />} />
+        <Route path="employees" element={<Employees />} />
+        <Route path="attendance" element={<Attendance />} />
+        <Route path="leaves" element={<Leaves />} />
+        <Route path="payroll" element={<Payroll />} />
+        <Route
+          path="organization"
+          element={
+            <PrivateRoute roles={["Admin"]}>
+              <Organization />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="ai"
+          element={
+            <Suspense fallback={<div className="text-sm text-slate-500">Loading AI Assistant...</div>}>
+              <AIAssistant />
+            </Suspense>
+          }
+        />
+        <Route path="announcements" element={<Announcements />} />
+        <Route
+          path="audit"
+          element={
+            <PrivateRoute roles={["Admin"]}>
+              <AuditLog />
+            </PrivateRoute>
+          }
+        />
+      </Route>
+
+      <Route path="*" element={<Navigate to="/" />} />
+    </Routes>
+  );
 }

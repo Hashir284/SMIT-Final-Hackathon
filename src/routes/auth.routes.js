@@ -1,19 +1,26 @@
-import { Router } from "express";
-import { getCurrentUser, googleLogin, login, logout, signup } from "../controllers/auth.controller.js";
-import { adminOnly, loginCheck } from "../middlewares/auth.middleware.js";
+import express from "express";
+import {
+  getSetupStatus,
+  firstRunSetup,
+  login,
+  googleLogin,
+  getMe,
+  logout,
+  changePassword,
+} from "../controllers/auth.controller.js";
+import { protect } from "../middleware/auth.middleware.js";
 
-const router = Router();
+const router = express.Router();
 
-router.get("/config", (req, res) => {
-	res.json({ googleClientId: process.env.GOOGLE_CLIENT_ID || "" });
-});
-router.post("/signup", signup);
+// Public routes
+router.get("/setup-status", getSetupStatus);
+router.post("/first-run", firstRunSetup);
 router.post("/login", login);
 router.post("/google", googleLogin);
-router.post("/logout", logout);
-router.get("/me", loginCheck, getCurrentUser);
-router.get("/admin-check", loginCheck, adminOnly, (req, res) => {
-	res.json({ status: "success", message: "Admin access granted" });
-});
+
+// Protected routes
+router.get("/me", protect, getMe);
+router.post("/logout", protect, logout);
+router.put("/change-password", protect, changePassword);
 
 export default router;

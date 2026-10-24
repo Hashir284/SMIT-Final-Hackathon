@@ -1,62 +1,64 @@
-import { useCallback, useEffect, useState } from 'react'
-import api from '../../lib/api.js'
-import AuthContext from './AuthContextValue.js'
+import { createContext, useContext, useState, useEffect } from "react";
+import { api } from "../api/client";
+
+const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null)
-  const [userLoggedIn, setUserLoggedIn] = useState(null)
-  const [googleClientId, setGoogleClientId] = useState('')
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [needsSetup, setNeedsSetup] = useState(false);
 
   useEffect(() => {
-    let active = true
+    checkAuth();
+  }, []);
 
-    api.get('/config')
-      .then(({ data }) => {
-        if (active) setGoogleClientId(data.googleClientId || '')
-      })
-      .catch(() => {})
+  async function checkAuth() {
+    try {
+      const status = await api.get("/auth/setup-status");
+      if (status.needsSetup) {
+        setNeedsSetup(true);
+        setLoading(false);
+        return;
+      }
+      const me = await api.get("/auth/me");
+      setUser(me.user);
+    } catch {
+      setUser(null);
+    } finally {
+      setLoading(false);
+    }
+  }
 
-    api.get('/me')
-      .then(({ data }) => {
-        if (!active) return
-        setUser(data.user)
-        setUserLoggedIn(true)
-      })
-      .catch(() => {
-        if (active) setUserLoggedIn(false)
-      })
+  async function login(email, password) {
+    const data = await api.post("/auth/login", { email, password });
+    setUser(data.user);
+    setNeedsSetup(false);
+    return data;
+  }
 
-    return () => { active = false }
-  }, [])
+  async function firstRun(payload) {
+    const data = await api.post("/auth/first-run", payload);
+    setUser(data.user);
+    setNeedsSetup(false);
+    return data;
+  }
 
-  const login = useCallback(async (credentials) => {
-    const { data } = await api.post('/login', credentials)
-    setUser(data.user)
-    setUserLoggedIn(true)
-    return data.user
-  }, [])
-
-  const signup = useCallback(async (details) => {
-    const { data } = await api.post('/signup', details)
-    return data
-  }, [])
-
-  const googleLogin = useCallback(async (credential) => {
-    const { data } = await api.post('/google', { credential })
-    setUser(data.user)
-    setUserLoggedIn(true)
-    return data.user
-  }, [])
-
-  const logout = useCallback(async () => {
-    await api.post('/logout')
-    setUser(null)
-    setUserLoggedIn(false)
-  }, [])
+  async function logout() {
+    try {
+      await api.post("/auth/logout");
+    } catch {}
+    setUser(null);
+  }
 
   return (
-    <AuthContext.Provider value={{ user, userLoggedIn, googleClientId, login, signup, googleLogin, logout }}>
+    <AuthContext.Provider
+      value={{ user, loading, needsSetup, login, logout, firstRun, setUser }}
+    >
       {children}
     </AuthContext.Provider>
-  )
+  );
+}
+
+export function useAuth() {
+  return useContext(AuthContext);
 }
