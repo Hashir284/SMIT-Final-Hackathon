@@ -52,13 +52,13 @@ const __dirname = path.resolve();
 const __frontend = path.join(__dirname, "./web/dist");
 app.use("/", express.static(__frontend));
 app.use("/*splat", express.static(__frontend));
-app.get("*", (req, res, next) => {
-  if (req.path === "/api" || req.path.startsWith("/api/")) {
-    return next();
-  }
+// app.get("*", (req, res, next) => {
+//   if (req.path === "/api" || req.path.startsWith("/api/")) {
+//     return next();
+//   }
 
-  res.sendFile(path.join(__frontend, "index.html"));
-});
+//   res.sendFile(path.join(__frontend, "index.html"));
+// });
 
 // Start server
 const startServer = async () => {
