@@ -59,6 +59,17 @@ app.use("/*splat", express.static(__frontend));
 
 //   res.sendFile(path.join(__frontend, "index.html"));
 // });
+// Disable caching for index.html so browser always gets the latest version
+app.use("/", express.static(__frontend, {
+  etag: true,
+  lastModified: true,
+  setHeaders: (res, path) => {
+    if (path.endsWith(".html")) {
+      // HTML file par cache na lagaye taake naya bundle link foran mil jaye
+      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    }
+  },
+}));
 
 // Start server
 const startServer = async () => {
