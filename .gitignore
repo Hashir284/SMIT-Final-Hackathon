@@ -7,7 +7,7 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 a
-New folder
+Newfolder
 node_modules
 .env
 !.env.example
