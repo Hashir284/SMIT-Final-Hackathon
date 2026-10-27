@@ -7,7 +7,9 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "server": "node server.js"
+    "server": "node server.js",
+    "seed:demo": "node scripts/seed-demo.js",
+    "clear:demo": "node scripts/clear-demo-data.js"
   },
   "keywords": [
     "hcm",

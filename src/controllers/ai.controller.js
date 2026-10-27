@@ -6,6 +6,7 @@ import LeaveType from "../models/LeaveType.js";
 import Payroll from "../models/Payroll.js";
 import Department from "../models/Department.js";
 import Company from "../models/Company.js";
+import AIChat from "../models/AIChat.js";
 import { toDateStr } from "../utils/helpers.js";
 
 const getClient = () => {
@@ -18,6 +19,36 @@ const getClient = () => {
 };
 
 const GROQ_MODEL = "openai/gpt-oss-20b";
+
+/**
+ * Get chat history for the current user
+ */
+export const getChatHistory = async (req, res) => {
+  try {
+    const chats = await AIChat.find({ user: req.user._id })
+      .sort({ createdAt: 1, _id: 1 })
+      .lean();
+
+    const messages = chats.flatMap((chat) => [
+      {
+        id: `${chat._id}-user`,
+        role: "user",
+        text: chat.userMessage,
+        createdAt: chat.createdAt,
+      },
+      {
+        id: `${chat._id}-assistant`,
+        role: "ai",
+        text: chat.assistantMessage,
+        createdAt: chat.createdAt,
+      },
+    ]);
+
+    res.json({ success: true, messages });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
 
 /**
  * Tool definitions for the AI
@@ -247,9 +278,10 @@ async function executeTool(name, args, user) {
 export const chat = async (req, res) => {
   try {
     const { message } = req.body;
-    if (!message) {
+    if (typeof message !== "string" || !message.trim()) {
       return res.status(400).json({ success: false, message: "message required" });
     }
+    const userMessage = message.trim();
 
     const client = getClient();
     if (!client) {
@@ -281,7 +313,7 @@ Rules:
       { role: "system", content: systemPrompt },
       {
         role: "user",
-        content: `Website data:\n${websiteData}\n\nUser question:\n${message}`,
+        content: `Website data:\n${websiteData}\n\nUser question:\n${userMessage}`,
       },
     ];
 
@@ -327,11 +359,17 @@ Rules:
     }
 
     const answer = assistantMessage.content || "I could not generate an answer.";
+    const savedChat = await AIChat.create({
+      user: req.user._id,
+      userMessage,
+      assistantMessage: answer,
+    });
 
     res.json({
       success: true,
       answer,
       role: req.user.role,
+      chatId: savedChat._id,
     });
   } catch (error) {
     console.error("AI Error:", error.message);

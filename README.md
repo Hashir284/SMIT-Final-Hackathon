@@ -64,6 +64,36 @@ npm run build
 # dist/ is served automatically by Express
 ```
 
+### Seed demo data
+
+After setting `MONGO_URI` in the backend `.env` file, run this from the
+repository root:
+
+```bash
+npm run seed:demo
+```
+
+This safely adds demo records across all MongoDB collections, including 200
+employees, 10 HR accounts, attendance, leave, payroll, and related organization
+and communication data. Running it again does not duplicate its seeded records.
+All generated account emails end in `@email.com`. Seeded accounts use the
+password `123456`; existing Admin accounts are reused without changing their
+name or password. New HR and employee names are unique. Demo attendance covers
+today and yesterday (within the last 48 hours) and includes some absent
+employees.
+
+To clear existing data before reseeding, run this from the repository root:
+
+```bash
+npm run clear:demo -- --confirm
+npm run seed:demo
+```
+
+The clear command permanently deletes documents from every collection in the
+configured database except Admin user documents, which it preserves unchanged.
+Collections and indexes remain in place. Review `MONGO_URI` before confirming;
+use only with a development/demo database.
+
 ---
 
 ## First-Run Flow (Empty DB)
@@ -94,6 +124,8 @@ npm run build
 | M8 | AI Assistant (tool calling, privacy guardrails, summarize) | Done |
 | M9 | Comms & Audit (announcements, audit log) | Done |
 
+AI Assistant chat history is saved per user and restored when that user opens the assistant.
+
 ---
 
 ## Demo Script (5 min)
@@ -107,7 +139,7 @@ npm run build
 7. Admin finalizes payroll + shows audit log
 8. Employee views payslip, AI refuses colleague salary
 
----
+<!-- ---
 
 ## Environment Variables
 
@@ -118,7 +150,7 @@ JWT_SECRET=change_this_to_a_long_random_string
 JWT_EXPIRE=7d
 GROQ_API_KEY=gsk_...
 GROQ_MODEL=openai/gpt-oss-20b
-```
+``` -->
 
 ---
 

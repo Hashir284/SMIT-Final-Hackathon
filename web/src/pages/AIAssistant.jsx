@@ -7,6 +7,7 @@ import { api } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
+import { Skeleton } from "../components/ui/Skeleton";
 
 const markdownComponents = {
   h1: ({ children }) => <h1 className="mb-2 text-base font-semibold">{children}</h1>,
@@ -53,15 +54,34 @@ const markdownComponents = {
 
 export default function AIAssistant() {
   const { user } = useAuth();
-  const [messages, setMessages] = useState([
-    {
-      role: "ai",
-      text: `Hi ${user?.name}! I'm your HCM AI assistant. Ask about attendance, leaves, headcount or payroll — I only use real system data.`,
-    },
-  ]);
+  const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [historyError, setHistoryError] = useState("");
   const chatRef = useRef(null);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadHistory() {
+      setHistoryLoading(true);
+      setHistoryError("");
+      try {
+        const res = await api.get("/ai/chat");
+        if (active) setMessages(res.messages || []);
+      } catch (err) {
+        if (active) setHistoryError(err.message);
+      } finally {
+        if (active) setHistoryLoading(false);
+      }
+    }
+
+    loadHistory();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     const chat = chatRef.current;
@@ -69,16 +89,23 @@ export default function AIAssistant() {
   }, [messages, loading]);
 
   async function send() {
-    if (!input.trim() || loading) return;
+    if (!input.trim() || loading || historyLoading || historyError) return;
     const userMsg = input.trim();
     setInput("");
-    setMessages((m) => [...m, { role: "user", text: userMsg }]);
     setLoading(true);
     try {
       const res = await api.post("/ai/chat", { message: userMsg });
-      setMessages((m) => [...m, { role: "ai", text: res.answer }]);
+      setMessages((current) => [
+        ...current,
+        { id: `${res.chatId}-user`, role: "user", text: userMsg },
+        { id: `${res.chatId}-assistant`, role: "ai", text: res.answer },
+      ]);
     } catch (err) {
-      setMessages((m) => [...m, { role: "ai", text: "Error: " + err.message }]);
+      setMessages((m) => [
+        ...m,
+        { id: `error-${Date.now()}`, role: "user", text: userMsg },
+        { id: `error-response-${Date.now()}`, role: "ai", text: "Error: " + err.message },
+      ]);
     } finally {
       setLoading(false);
     }
@@ -98,9 +125,49 @@ export default function AIAssistant() {
 
       <Card className="!p-0 overflow-hidden">
         <div ref={chatRef} className="h-[420px] overflow-y-auto p-5 space-y-3 bg-slate-50/50">
+          {historyLoading && (
+            <div className="space-y-4" aria-label="Loading chat history">
+              <div className="flex justify-end">
+                <div className="w-2/3 rounded-2xl rounded-br-md border border-slate-200 bg-white p-4">
+                  <Skeleton className="h-3 w-full" />
+                  <Skeleton className="mt-2 h-3 w-2/3" />
+                </div>
+              </div>
+              <div className="flex justify-start">
+                <div className="w-3/4 rounded-2xl rounded-bl-md border border-slate-200 bg-white p-4">
+                  <Skeleton className="h-3 w-full" />
+                  <Skeleton className="mt-2 h-3 w-5/6" />
+                  <Skeleton className="mt-2 h-3 w-1/2" />
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <div className="w-1/2 rounded-2xl rounded-br-md border border-slate-200 bg-white p-4">
+                  <Skeleton className="h-3 w-full" />
+                  <Skeleton className="mt-2 h-3 w-3/5" />
+                </div>
+              </div>
+            </div>
+          )}
+          {historyError && (
+            <div className="rounded-lg bg-rose-50 p-3 text-sm text-rose-700">
+              Could not load your chat history: {historyError}
+              <button
+                type="button"
+                className="ml-2 font-medium underline"
+                onClick={() => window.location.reload()}
+              >
+                Retry
+              </button>
+            </div>
+          )}
+          {!historyLoading && !historyError && messages.length === 0 && (
+            <div className="max-w-[85%] rounded-2xl rounded-bl-md border border-slate-200 bg-white px-4 py-2.5 text-sm leading-relaxed text-slate-700 shadow-sm">
+              Hi {user?.name}! I'm your HCM AI assistant. Ask about attendance, leaves, headcount or payroll — I only use real system data.
+            </div>
+          )}
           {messages.map((m, i) => (
             <div
-              key={i}
+              key={m.id || i}
               className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
                 m.role === "user"
                   ? "ml-auto bg-teal-600 text-white rounded-br-md"
@@ -149,10 +216,10 @@ export default function AIAssistant() {
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && send()}
             placeholder="Ask anything about HR data..."
-            disabled={loading}
+            disabled={loading || historyLoading || !!historyError}
             className="flex-1 rounded-lg border border-slate-200 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
           />
-          <Button onClick={send} loading={loading}>Send</Button>
+          <Button onClick={send} loading={loading} disabled={historyLoading || !!historyError}>Send</Button>
         </div>
       </Card>
     </div>

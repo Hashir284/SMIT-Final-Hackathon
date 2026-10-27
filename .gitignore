@@ -10,9 +10,9 @@ a
 New folder
 node_modules
 .env
-
+.env.example
 *.local
-
+scripts
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
